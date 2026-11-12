@@ -4,7 +4,13 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:zonasos_flutter/features/emergencias/models/emergencia_model.dart';
 
 class EmergenciaService {
-  static const String baseUrl = 'http://10.0.2.2:8080/api/alertas';
+  // Backend en producción (Render).
+  // Para probar contra tu PC con el emulador: 'http://10.0.2.2:8080/api/alertas'
+  static const String baseUrl = 'https://alertas-cartagena-backend.onrender.com/api/alertas';
+
+  // Render (plan gratis) puede tardar hasta ~1 minuto en despertar
+  static const Duration _timeout = Duration(seconds: 90);
+
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   Future<Map<String, String>> _getHeaders() async {
@@ -18,7 +24,8 @@ class EmergenciaService {
   Future<List<EmergenciaModel>> obtenerEmergencias() async {
     try {
       final headers = await _getHeaders();
-      final response = await http.get(Uri.parse(baseUrl), headers: headers);
+      final response =
+          await http.get(Uri.parse(baseUrl), headers: headers).timeout(_timeout);
 
       if (response.statusCode == 200) {
         final List<dynamic> list = json.decode(response.body);
@@ -33,11 +40,21 @@ class EmergenciaService {
   Future<bool> guardarEmergencia(EmergenciaModel nueva) async {
     try {
       final headers = await _getHeaders();
-      final response = await http.post(
-        Uri.parse(baseUrl),
-        headers: headers,
-        body: json.encode(nueva.toJson()),
-      );
+      final body = nueva.toJson();
+
+      // Igual que la web: asociar la alerta al usuario que la reporta
+      final userId = await _storage.read(key: 'user_id');
+      if (userId != null && userId.isNotEmpty) {
+        body['usuarioId'] = userId;
+      }
+
+      final response = await http
+          .post(
+            Uri.parse(baseUrl),
+            headers: headers,
+            body: json.encode(body),
+          )
+          .timeout(_timeout);
 
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
@@ -49,11 +66,15 @@ class EmergenciaService {
   Future<bool> actualizarEstadoEmergencia(String id, String nuevoEstado) async {
     try {
       final headers = await _getHeaders();
-      final response = await http.put(
-        Uri.parse('$baseUrl/$id'),
-        headers: headers,
-        body: json.encode({'estado': nuevoEstado}),
-      );
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/$id'),
+            headers: headers,
+            body: json.encode({
+              'estado': EmergenciaModel.estadoHaciaBackend(nuevoEstado),
+            }),
+          )
+          .timeout(_timeout);
 
       return response.statusCode == 200;
     } catch (e) {

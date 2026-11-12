@@ -17,6 +17,32 @@ class EmergenciaModel {
     this.estado = 'PENDIENTE',
   });
 
+  // El backend (y la web) usan ALERTA / ATENCION / RESUELTO.
+  // La app usa PENDIENTE / EN_ATENCION / RESUELTO.
+  static String estadoDesdeBackend(String? e) {
+    switch (e) {
+      case 'ALERTA':
+        return 'PENDIENTE';
+      case 'ATENCION':
+        return 'EN_ATENCION';
+      case null:
+        return 'PENDIENTE';
+      default:
+        return e;
+    }
+  }
+
+  static String estadoHaciaBackend(String e) {
+    switch (e) {
+      case 'PENDIENTE':
+        return 'ALERTA';
+      case 'EN_ATENCION':
+        return 'ATENCION';
+      default:
+        return e;
+    }
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id.isEmpty ? null : id,
         'titulo': tipo,
@@ -24,7 +50,7 @@ class EmergenciaModel {
         'latitud': lat,
         'longitud': lng,
         'ubicacionTexto': 'Cartagena, Colombia',
-        'estado': estado,
+        'estado': estadoHaciaBackend(estado),
       };
 
   factory EmergenciaModel.fromJson(Map<String, dynamic> json) {
@@ -34,10 +60,10 @@ class EmergenciaModel {
       descripcion: json['descripcion'] ?? '',
       lat: (json['latitud'] ?? json['lat'] ?? 10.39972).toDouble(),
       lng: (json['longitud'] ?? json['lng'] ?? -75.51444).toDouble(),
-      fecha: json['fechaHoraCreacion'] != null 
-          ? DateTime.parse(json['fechaHoraCreacion']) 
+      fecha: json['fechaHoraCreacion'] != null
+          ? DateTime.parse(json['fechaHoraCreacion'])
           : DateTime.now(),
-      estado: json['estado'] ?? 'PENDIENTE',
+      estado: estadoDesdeBackend(json['estado']),
     );
   }
 }
